@@ -1,0 +1,20 @@
+
+* CL-Plumbing
+
+This library adds a few stream manipulation facilities that I haven't been able
+to figure out using CL's stream facilities.  These include:
+
+=make-pipe=: Make a two way stream (though not of type two-way-stream) that
+accepts data (via writing to it) and that data can then be read from it.  This
+is similar to the piping mechanism in the shell.
+
+=connect-streams=: Take an input stream and an output stream and feed all data
+from the input stream to the output stream.  Again, similar to the way shell
+pipes act, but this is for two existing streams and the other creates two new
+streams (well, one new two way stream).
+
+** Future work
+
+Just now it occurred to me that it would be cool to have this provide a CL
+(gray) stream interface for ZeroMQ.  Most of the work is already done, I
+believe...
