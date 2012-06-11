@@ -105,6 +105,10 @@
 (defmethod trivial-gray-streams:stream-line-column ((p pipe))
   0)
 
+(defmethod close ((p pipe) &key abort)
+  (declare (ignore abort))
+  (close (output-of p)))
+
 (defun make-pipe ()
   "This makes a stream where you can write your output, then read it out
 elsewhere."
