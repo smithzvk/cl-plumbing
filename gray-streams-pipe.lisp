@@ -23,7 +23,7 @@
               (make-concatenated-stream
                (input-of p)
                (make-string-input-stream string)))))
-    (read-char (input-of p))))
+    (read-char (input-of p) nil :eof)))
 
 (defmethod trivial-gray-streams:stream-unread-char ((p pipe) character)
   (bt:with-lock-held ((lock-of p))
@@ -37,7 +37,7 @@
               (make-concatenated-stream
                (input-of p)
                (make-string-input-stream string)))))
-    (read-line (input-of p))))
+    (read-line (input-of p) nil :eof)))
 
 (defmethod trivial-gray-streams:stream-read-sequence
     ((p pipe) seq start end &key &allow-other-keys)
