@@ -15,14 +15,17 @@
   (bt:with-lock-held ((lock-of p))
     (write-char character (output-of p))))
 
+(defun flush-in-to-out (pipe)
+  (let ((string (get-output-stream-string (output-of pipe))))
+    (when (> (length string) 0)
+      (setf (input-of pipe)
+            (make-concatenated-stream
+             (input-of pipe)
+             (make-string-input-stream string))))))
+
 (defmethod trivial-gray-streams:stream-read-char ((p pipe))
   (bt:with-lock-held ((lock-of p))
-    (let ((string (get-output-stream-string (output-of p))))
-      (when (> (length string) 0)
-        (setf (input-of p)
-              (make-concatenated-stream
-               (input-of p)
-               (make-string-input-stream string)))))
+    (flush-in-to-out p)
     (read-char (input-of p) nil :eof)))
 
 (defmethod trivial-gray-streams:stream-unread-char ((p pipe) character)
@@ -31,23 +34,13 @@
 
 (defmethod trivial-gray-streams:stream-read-line ((p pipe))
   (bt:with-lock-held ((lock-of p))
-    (let ((string (get-output-stream-string (output-of p))))
-      (when (> (length string) 0)
-        (setf (input-of p)
-              (make-concatenated-stream
-               (input-of p)
-               (make-string-input-stream string)))))
+    (flush-in-to-out p)
     (read-line (input-of p) nil :eof)))
 
 (defmethod trivial-gray-streams:stream-read-sequence
     ((p pipe) seq start end &key &allow-other-keys)
   (bt:with-lock-held ((lock-of p))
-    (let ((string (get-output-stream-string (output-of p))))
-      (when (> (length string) 0)
-        (setf (input-of p)
-              (make-concatenated-stream
-               (input-of p)
-               (make-string-input-stream string)))))
+    (flush-in-to-out p)
     (read-sequence seq (input-of p) :start start :end end)))
 
 (defmethod trivial-gray-streams:stream-write-sequence
