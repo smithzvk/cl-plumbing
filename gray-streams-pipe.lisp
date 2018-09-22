@@ -2,7 +2,8 @@
 
 ;; Gray Stream version
 
-(defclass pipe (trivial-gray-streams:fundamental-stream
+(defclass pipe (trivial-gray-streams:fundamental-input-stream
+                trivial-gray-streams:fundamental-output-stream
                 trivial-gray-streams:trivial-gray-stream-mixin)
   ((lock :initform (bordeaux-threads:make-lock) :accessor lock-of)
    (input :initarg :input :accessor input-of)
@@ -35,6 +36,16 @@
     ;; Is there a way to remove this polling delay?  Perhaps it isn't a big
     ;; deal.
     (sleep .01)))
+
+(defmethod trivial-gray-streams:stream-read-char-no-hang ((p pipe))
+  (block nil
+    (bt:with-lock-held ((lock-of p))
+      (let ((eof (not (open-stream-p (output-of p)))))
+        (flush-in-to-out p)
+        (let ((result (read-char (input-of p) nil :eof)))
+          (cond ((not (equal :eof result)) (return result))
+                ((and eof (equal :eof result)) (return :eof))
+                (t nil)))))))
 
 (defmethod trivial-gray-streams:stream-unread-char ((p pipe) character)
   (bt:with-lock-held ((lock-of p))
