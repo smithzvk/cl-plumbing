@@ -7,10 +7,16 @@
                 trivial-gray-streams:trivial-gray-stream-mixin)
   ((lock :initform (bordeaux-threads:make-lock) :accessor lock-of)
    (input :initarg :input :accessor input-of)
-   (output :initarg :output :accessor output-of)))
+   (output :initarg :output :accessor output-of)
+   (element-type :initarg :element-type :accessor pipe-element-type)))
+
+(defmethod initialize-instance :after
+    ((p pipe) &key)
+  (setf (pipe-element-type p)
+        (stream-element-type (output-of p))))
 
 (defmethod stream-element-type ((stream pipe))
-  (stream-element-type (output-of stream)))
+  (pipe-element-type stream))
 
 (defmethod trivial-gray-streams:stream-write-char ((p pipe) character)
   (bt:with-lock-held ((lock-of p))
@@ -69,8 +75,8 @@
                     (seq (make-array (list *block-size*)))
                     (n-read (read-sequence seq (input-of p)))
                     (newline-marker (iter (for char in-sequence seq with-index i)
-                                      (while (< i n-read))
-                                      (finding i such-that (eql char #\Newline)))))
+                                          (while (< i n-read))
+                                          (finding i such-that (eql char #\Newline)))))
                (cond ((and newline-marker (< newline-marker n-read))
                       (setf (input-of p) (make-concatenated-stream
                                           (make-string-input-stream
