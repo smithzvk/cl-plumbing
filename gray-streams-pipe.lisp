@@ -9,12 +9,18 @@
    (input :initarg :input :accessor input-of)
    (output :initarg :output :accessor output-of)))
 
-;; (defmethod stream-element-type ((stream pipe))
-;;   (stream-element-type (output-of stream)))
+(defmethod stream-element-type ((stream pipe))
+  (stream-element-type (output-of stream)))
 
 (defmethod trivial-gray-streams:stream-write-char ((p pipe) character)
   (bt:with-lock-held ((lock-of p))
     (write-char character (output-of p))))
+
+(defmethod trivial-gray-streams:stream-write-string
+    ((p pipe) string &optional start end)
+  (let* ((str (subseq string (if start start 0) end)))
+    (bt:with-lock-held ((lock-of p))
+      (map nil (lambda (c) (write-char c (output-of p))) str))))
 
 (defun flush-in-to-out (pipe)
   (let ((string (get-output-stream-string (output-of pipe))))
