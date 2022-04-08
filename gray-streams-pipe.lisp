@@ -21,6 +21,7 @@ has completed."
          (progn ,@body)
          (bordeaux-threads:condition-notify ,cvar)))))
 
+;; Macro automating condition-wait
 (defmacro with-condition-wait (pipe &body body)
   "Use to automatically wait on write functions to finish before reading."
   (alexandria:with-gensyms (p lock cvar)
