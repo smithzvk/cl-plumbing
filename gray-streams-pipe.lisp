@@ -6,9 +6,30 @@
                 trivial-gray-streams:fundamental-output-stream
                 trivial-gray-streams:trivial-gray-stream-mixin)
   ((lock :initform (bordeaux-threads:make-lock) :accessor lock-of)
+   (cvar :initform (bordeaux-threads:make-condition-variable) :accessor cvar-of)
    (input :initarg :input :accessor input-of)
    (output :initarg :output :accessor output-of)
    (element-type :initarg :element-type :accessor element-type)))
+
+;; Macro automating condition-notify
+(defmacro with-condition-notify (pipe &body body)
+  "Use to automatically notify read functions that the write function
+has completed."
+  (alexandria:with-gensyms (p cvar)
+    `(let* ((,p ,pipe))
+       (with-accessors ((,cvar cvar-of)) ,p
+         (progn ,@body)
+         (bordeaux-threads:condition-notify ,cvar)))))
+
+(defmacro with-condition-wait (pipe &body body)
+  "Use to automatically wait on write functions to finish before reading."
+  (alexandria:with-gensyms (p lock cvar)
+    `(let* ((,p ,pipe))
+       (with-accessors ((,lock lock-of)
+                        (,cvar cvar-of))
+           ,p
+         (progn ,@body)
+         (bordeaux-threads:condition-wait ,cvar ,lock)))))
 
 (defmethod initialize-instance :after
     ((p pipe) &key)
@@ -19,14 +40,16 @@
   (element-type stream))
 
 (defmethod trivial-gray-streams:stream-write-char ((p pipe) character)
-  (bt:with-lock-held ((lock-of p))
-    (write-char character (output-of p))))
+  (with-condition-notify p
+    (bt:with-lock-held ((lock-of p))
+      (write-char character (output-of p)))))
 
 (defmethod trivial-gray-streams:stream-write-string
     ((p pipe) string &optional start end)
-  (let* ((str (subseq string (if start start 0) end)))
-    (bt:with-lock-held ((lock-of p))
-      (write-string str (output-of p)))))
+  (with-condition-notify p
+    (let* ((str (subseq string (if start start 0) end)))
+      (bt:with-lock-held ((lock-of p))
+        (write-string str (output-of p))))))
 
 (defun flush-in-to-out (pipe)
   (let ((string (get-output-stream-string (output-of pipe))))
@@ -38,16 +61,14 @@
 
 (defmethod trivial-gray-streams:stream-read-char ((p pipe))
   (iter
-    (bt:with-lock-held ((lock-of p))
-      (let ((eof (not (open-stream-p (output-of p)))))
-        (flush-in-to-out p)
-        (let ((result (read-char (input-of p) nil :eof)))
-          (cond ((not (equal :eof result)) (return result))
-                ((and eof (equal :eof result)) (return :eof))
-                (t nil)))))
-    ;; Is there a way to remove this polling delay?  Perhaps it isn't a big
-    ;; deal.
-    (sleep .01)))
+    (with-condition-wait p
+      (bt:with-lock-held ((lock-of p))
+        (let ((eof (not (open-stream-p (output-of p)))))
+          (flush-in-to-out p)
+          (let ((result (read-char (input-of p) nil :eof)))
+            (cond ((not (equal :eof result)) (return result))
+                  ((and eof (equal :eof result)) (return :eof))
+                  (t nil))))))))
 
 (defmethod trivial-gray-streams:stream-read-char-no-hang ((p pipe))
   (block nil
@@ -122,8 +143,9 @@
 
 (defmethod trivial-gray-streams:stream-write-sequence
     ((p pipe) seq start end &key &allow-other-keys)
-  (bt:with-lock-held ((lock-of p))
-    (write-sequence seq (output-of p) :start start :end end)))
+  (with-condition-notify p
+    (bt:with-lock-held ((lock-of p))
+      (write-sequence seq (output-of p) :start start :end end))))
 
 (defmethod trivial-gray-streams:stream-line-column ((p pipe))
   0)
