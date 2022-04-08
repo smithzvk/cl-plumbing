@@ -17,20 +17,19 @@
     (close pipe)
     (is (equal '(1 2 3)
                (iter (for val in-stream pipe)
-                 (collect val))))))
+                     (collect val))))))
 
 (deftest pipe-test ()
   (let ((input "hello howdy heck"))
     (let ((pipe (make-pipe)))
       (iter (for c in-sequence input)
-        (write-char c pipe)
-        (is (equal c (read-char pipe)))))
+            (write-char c pipe)
+            (is (equal c (read-char pipe)))))
     (is (equal input
                (let ((pipe (make-pipe)))
                  (iter (for c in-sequence input)
                        (write-char c pipe))
                  (close pipe) ; have to close before bulk read
                  (iter (for c = (read-char pipe nil nil))
-                   (while c)
-                   (collect c result-type 'string)))))))
-
+                       (while c)
+                       (collect c result-type 'string)))))))
