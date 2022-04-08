@@ -8,15 +8,15 @@
   ((lock :initform (bordeaux-threads:make-lock) :accessor lock-of)
    (input :initarg :input :accessor input-of)
    (output :initarg :output :accessor output-of)
-   (element-type :initarg :element-type :accessor pipe-element-type)))
+   (element-type :initarg :element-type :accessor element-type)))
 
 (defmethod initialize-instance :after
     ((p pipe) &key)
-  (setf (pipe-element-type p)
+  (setf (element-type p)
         (stream-element-type (output-of p))))
 
 (defmethod stream-element-type ((stream pipe))
-  (pipe-element-type stream))
+  (element-type stream))
 
 (defmethod trivial-gray-streams:stream-write-char ((p pipe) character)
   (bt:with-lock-held ((lock-of p))
