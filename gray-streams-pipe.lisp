@@ -23,19 +23,6 @@ has completed."
          (bordeaux-threads:condition-notify ,cvar)
          ,result))))
 
-;; Macro automating condition-wait
-(defmacro with-condition-wait (pipe &body body)
-  "Use to automatically wait on write functions to finish before reading."
-  (alexandria:with-gensyms (p lock cvar result)
-    `(let* ((,p ,pipe)
-            (,result nil))
-       (with-accessors ((,lock lock-of)
-                        (,cvar cvar-of))
-           ,p
-         (bordeaux-threads:condition-wait ,cvar ,lock)
-         (setf ,result (progn ,@body))
-         ,result))))
-
 (defmethod initialize-instance :after
     ((p pipe) &key)
   (setf (element-type p)
