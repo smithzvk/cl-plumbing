@@ -13,6 +13,8 @@
     (print 1 pipe)
     (print 2 pipe)
     (print 3 pipe)
+    ;; have to close input before bulk read, otherwise hangs forever:
+    (close pipe)
     (is (equal '(1 2 3)
                (iter (for val in-stream pipe)
                  (collect val))))))
@@ -26,7 +28,8 @@
     (is (equal input
                (let ((pipe (make-pipe)))
                  (iter (for c in-sequence input)
-                   (write-char c pipe))
+                       (write-char c pipe))
+                 (close pipe) ; have to close before bulk read
                  (iter (for c = (read-char pipe nil nil))
                    (while c)
                    (collect c result-type 'string)))))))

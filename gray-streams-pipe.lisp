@@ -15,22 +15,26 @@
 (defmacro with-condition-notify (pipe &body body)
   "Use to automatically notify read functions that the write function
 has completed."
-  (alexandria:with-gensyms (p cvar)
-    `(let* ((,p ,pipe))
+  (alexandria:with-gensyms (p cvar result)
+    `(let* ((,p ,pipe)
+            (,result nil))
        (with-accessors ((,cvar cvar-of)) ,p
-         (progn ,@body)
-         (bordeaux-threads:condition-notify ,cvar)))))
+         (setf ,result (progn ,@body))
+         (bordeaux-threads:condition-notify ,cvar)
+         ,result))))
 
 ;; Macro automating condition-wait
 (defmacro with-condition-wait (pipe &body body)
   "Use to automatically wait on write functions to finish before reading."
-  (alexandria:with-gensyms (p lock cvar)
-    `(let* ((,p ,pipe))
+  (alexandria:with-gensyms (p lock cvar result)
+    `(let* ((,p ,pipe)
+            (,result nil))
        (with-accessors ((,lock lock-of)
                         (,cvar cvar-of))
            ,p
-         (progn ,@body)
-         (bordeaux-threads:condition-wait ,cvar ,lock)))))
+         (bordeaux-threads:condition-wait ,cvar ,lock)
+         (setf ,result (progn ,@body))
+         ,result))))
 
 (defmethod initialize-instance :after
     ((p pipe) &key)
@@ -61,15 +65,21 @@ has completed."
              (make-string-input-stream string))))))
 
 (defmethod trivial-gray-streams:stream-read-char ((p pipe))
-  (iter
-    (with-condition-wait p
-      (bt:with-lock-held ((lock-of p))
-        (let ((eof (not (open-stream-p (output-of p)))))
-          (flush-in-to-out p)
-          (let ((result (read-char (input-of p) nil :eof)))
-            (cond ((not (equal :eof result)) (return result))
-                  ((and eof (equal :eof result)) (return :eof))
-                  (t nil))))))))
+  (bt:with-lock-held ((lock-of p))
+    (let ((eof (not (open-stream-p (output-of p)))))
+      (flush-in-to-out p)
+      (let ((result (read-char (input-of p) nil :eof)))
+        (cond
+          ;; read success
+          ((not (equal :eof result))
+           result)
+          ;; true end of file
+          ((and eof (equal :eof result))
+           :eof)
+          ;; wait for more data and try again
+          (t
+           (bordeaux-threads:condition-wait (cvar-of p) (lock-of p))
+           (trivial-gray-streams:stream-read-char p)))))))
 
 (defmethod trivial-gray-streams:stream-read-char-no-hang ((p pipe))
   (block nil
