@@ -26,7 +26,7 @@
     ((p pipe) string &optional start end)
   (let* ((str (subseq string (if start start 0) end)))
     (bt:with-lock-held ((lock-of p))
-      (map nil (lambda (c) (write-char c (output-of p))) str))))
+      (write-string str (output-of p)))))
 
 (defun flush-in-to-out (pipe)
   (let ((string (get-output-stream-string (output-of pipe))))
